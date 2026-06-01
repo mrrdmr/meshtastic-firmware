@@ -47,13 +47,12 @@
 //   CSD (pin 4)  -> GPIO2: Chip enable (HIGH=on, LOW=shutdown)
 //   CPS (pin 5)  -> GPIO46: PA mode select (HIGH=full PA, LOW=bypass)
 //   VCC0/VCC1    -> Vfem via U3 LDO, controlled by GPIO7
-#define USE_GC1109_PA
-#define LORA_PA_POWER 7  // VFEM_Ctrl - GC1109 LDO power enable
-#define LORA_PA_EN 2     // CSD - GC1109 chip enable (HIGH=on)
-#define LORA_PA_TX_EN 46 // CPS - GC1109 PA mode (HIGH=full PA, LOW=bypass)
+
+#define LORA_PA_POWER 7         // VFEM_Ctrl - GC1109 and KCT8103L LDO power enable
+#define LORA_GC1109_PA_EN 2     // CSD - GC1109 chip enable (HIGH=on)
+#define LORA_GC1109_PA_TX_EN 46 // CPS - GC1109 PA mode (HIGH=full PA, LOW=bypass)
 
 // GC1109 FEM: TX/RX path switching is handled by DIO2 -> CTX pin (via SX126X_DIO2_AS_RF_SWITCH)
-// GPIO46 is CPS (PA mode), not TX control - setTransmitEnable() handles it in SX126xInterface.cpp
 // Do NOT use SX126X_TXEN/RXEN as that would cause double-control of GPIO46
 
 #if HAS_TFT
@@ -74,5 +73,8 @@
 #define GPS_TX_PIN (38) // This is for bits going TOWARDS the CPU
 #define GPS_RX_PIN (39) // This is for bits going TOWARDS the GPS
 #define GPS_THREAD_INTERVAL 50
+
+#define LORA_KCT8103L_PA_CSD 2 // CSD - KCT8103L chip enable (HIGH=on)
+#define LORA_KCT8103L_PA_CTX 5 // CTX - Switch between Receive LNA Mode and Receive Bypass Mode. (HIGH=RX bypass, LOW=RX LNA)
 
 #define OCV_ARRAY 4190, 4060, 4020, 3980, 3890, 3860, 3820, 3740, 3600, 3510, 3100

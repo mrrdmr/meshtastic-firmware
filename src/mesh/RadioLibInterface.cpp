@@ -428,6 +428,10 @@ void RadioLibInterface::completeSending()
     auto p = sendingPacket;
     sendingPacket = NULL;
 
+#ifdef LED_LORA
+    digitalWrite(LED_LORA, LED_STATE_OFF);
+#endif
+
     if (p) {
         // Packet has been sent, count it toward our TX airtime utilization.
         uint32_t xmitMsec = getPacketTime(p);
@@ -582,6 +586,9 @@ bool RadioLibInterface::startSend(meshtastic_MeshPacket *txp)
             enableInterrupt(isrTxLevel0);
             lastTxStart = millis();
             printPacket("Started Tx", txp);
+#ifdef LED_LORA
+            digitalWrite(LED_LORA, LED_STATE_ON);
+#endif
         }
 
         return res == RADIOLIB_ERR_NONE;

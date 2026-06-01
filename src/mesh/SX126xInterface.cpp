@@ -29,7 +29,8 @@ SX126xInterface<T>::SX126xInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE cs
 /// Initialise the Driver transport hardware and software.
 /// Make sure the Driver is properly configured before calling init().
 /// \return true if initialisation succeeded.
-template <typename T> bool SX126xInterface<T>::init()
+template <typename T>
+bool SX126xInterface<T>::init()
 {
 
 // Typically, the RF switch on SX126x boards is controlled by two signals, which are negations of each other (switched RFIO
@@ -52,22 +53,12 @@ template <typename T> bool SX126xInterface<T>::init()
     pinMode(SX126X_POWER_EN, OUTPUT);
 #endif
 
-#if defined(USE_GC1109_PA)
-    // GC1109 FEM chip initialization
-    // See variant.h for full pin mapping and control logic documentation
-
-    // VFEM_Ctrl (LORA_PA_POWER): Power enable for GC1109 LDO (always on)
-    pinMode(LORA_PA_POWER, OUTPUT);
-    digitalWrite(LORA_PA_POWER, HIGH);
-
-    // CSD (LORA_PA_EN): Chip enable - must be HIGH to enable GC1109 for both RX and TX
-    pinMode(LORA_PA_EN, OUTPUT);
-    digitalWrite(LORA_PA_EN, HIGH);
-
-    // CPS (LORA_PA_TX_EN): PA mode select - HIGH enables full PA during TX, LOW for RX (don't care)
-    // Note: TX/RX path switching (CTX) is handled by DIO2 via SX126X_DIO2_AS_RF_SWITCH
-    pinMode(LORA_PA_TX_EN, OUTPUT);
-    digitalWrite(LORA_PA_TX_EN, LOW); // Start in RX-ready state
+#if HAS_LORA_FEM
+    loraFEMInterface.init();
+    // Apply saved FEM LNA mode from config
+    if (loraFEMInterface.isLnaCanControl()) {
+        loraFEMInterface.setLNAEnable(config.lora.fem_lna_mode != meshtastic_Config_LoRaConfig_FEM_LNA_Mode_DISABLED);
+    }
 #endif
 
 #ifdef RF95_FAN_EN
@@ -77,7 +68,8 @@ template <typename T> bool SX126xInterface<T>::init()
 
 #if ARCH_PORTDUINO
     tcxoVoltage = (float)portduino_config.dio3_tcxo_voltage / 1000;
-    if (portduino_config.lora_sx126x_ant_sw_pin.pin != RADIOLIB_NC) {
+    if (portduino_config.lora_sx126x_ant_sw_pin.pin != RADIOLIB_NC)
+    {
         digitalWrite(portduino_config.lora_sx126x_ant_sw_pin.pin, HIGH);
         pinMode(portduino_config.lora_sx126x_ant_sw_pin.pin, OUTPUT);
     }
@@ -101,7 +93,8 @@ template <typename T> bool SX126xInterface<T>::init()
 
 #ifdef SX126X_PA_RAMP_US
     // Set custom PA ramp time for boards requiring longer stabilization (e.g., T-Beam 1W needs >800us)
-    if (res == RADIOLIB_ERR_NONE) {
+    if (res == RADIOLIB_ERR_NONE)
+    {
         lora.setPaRampTime(SX126X_PA_RAMP_US);
     }
 #endif
@@ -126,12 +119,14 @@ template <typename T> bool SX126xInterface<T>::init()
     LOG_DEBUG("Current limit set to %f", currentLimit);
     LOG_DEBUG("Current limit set result %d", res);
 
-    if (res == RADIOLIB_ERR_NONE) {
+    if (res == RADIOLIB_ERR_NONE)
+    {
 #ifdef SX126X_DIO2_AS_RF_SWITCH
         bool dio2AsRfSwitch = true;
 #elif defined(ARCH_PORTDUINO)
         bool dio2AsRfSwitch = false;
-        if (portduino_config.dio2_as_rf_switch) {
+        if (portduino_config.dio2_as_rf_switch)
+        {
             dio2AsRfSwitch = true;
         }
 #else
@@ -144,7 +139,8 @@ template <typename T> bool SX126xInterface<T>::init()
 // If a pin isn't defined, we set it to RADIOLIB_NC, it is safe to always do external RF switching with RADIOLIB_NC as it has
 // no effect
 #if ARCH_PORTDUINO
-    if (res == RADIOLIB_ERR_NONE) {
+    if (res == RADIOLIB_ERR_NONE)
+    {
         LOG_DEBUG("Use MCU pin %i as RXEN and pin %i as TXEN to control RF switching", portduino_config.lora_rxen_pin.pin,
                   portduino_config.lora_txen_pin.pin);
         lora.setRfSwitchPins(portduino_config.lora_rxen_pin.pin, portduino_config.lora_txen_pin.pin);
@@ -158,15 +154,19 @@ template <typename T> bool SX126xInterface<T>::init()
 #define SX126X_TXEN RADIOLIB_NC
     LOG_DEBUG("SX126X_TXEN not defined, defaulting to RADIOLIB_NC");
 #endif
-    if (res == RADIOLIB_ERR_NONE) {
+    if (res == RADIOLIB_ERR_NONE)
+    {
         LOG_DEBUG("Use MCU pin %i as RXEN and pin %i as TXEN to control RF switching", SX126X_RXEN, SX126X_TXEN);
         lora.setRfSwitchPins(SX126X_RXEN, SX126X_TXEN);
     }
 #endif
-    if (config.lora.sx126x_rx_boosted_gain) {
+    if (config.lora.sx126x_rx_boosted_gain)
+    {
         uint16_t result = lora.setRxBoostedGainMode(true);
         LOG_INFO("Set RX gain to boosted mode; result: %d", result);
-    } else {
+    }
+    else
+    {
         uint16_t result = lora.setRxBoostedGainMode(false);
         LOG_INFO("Set RX gain to power saving mode (boosted mode off); result: %d", result);
     }
@@ -176,9 +176,12 @@ template <typename T> bool SX126xInterface<T>::init()
     // on boards with the GC1109 FEM. Sets bit 0 of register 0x8B5.
     // Reference: https://github.com/meshcore-dev/MeshCore/pull/1398
     uint8_t reg = module.SPIreadRegister(0x8B5);
-    if (module.SPIsetRegValue(0x8B5, reg | 0x01, 0, 0) == RADIOLIB_ERR_NONE) {
+    if (module.SPIsetRegValue(0x8B5, reg | 0x01, 0, 0) == RADIOLIB_ERR_NONE)
+    {
         LOG_INFO("Applied SX1262 register 0x8B5 patch for GC1109 RX improvement");
-    } else {
+    }
+    else
+    {
         LOG_WARN("Failed to apply SX1262 register 0x8B5 patch for GC1109");
     }
 #endif
@@ -216,7 +219,8 @@ template <typename T> bool SX126xInterface<T>::init()
     return res == RADIOLIB_ERR_NONE;
 }
 
-template <typename T> bool SX126xInterface<T>::reconfigure()
+template <typename T>
+bool SX126xInterface<T>::reconfigure()
 {
     RadioLibInterface::reconfigure();
 
@@ -268,12 +272,14 @@ template <typename T> bool SX126xInterface<T>::reconfigure()
     return RADIOLIB_ERR_NONE;
 }
 
-template <typename T> void SX126xInterface<T>::disableInterrupt()
+template <typename T>
+void SX126xInterface<T>::disableInterrupt()
 {
     lora.clearDio1Action();
 }
 
-template <typename T> void SX126xInterface<T>::setStandby()
+template <typename T>
+void SX126xInterface<T>::setStandby()
 {
     checkNotification(); // handle any pending interrupts before we force standby
 
@@ -297,7 +303,8 @@ template <typename T> void SX126xInterface<T>::setStandby()
 /**
  * Add SNR data to received messages
  */
-template <typename T> void SX126xInterface<T>::addReceiveMetadata(meshtastic_MeshPacket *mp)
+template <typename T>
+void SX126xInterface<T>::addReceiveMetadata(meshtastic_MeshPacket *mp)
 {
     // LOG_DEBUG("PacketStatus %x", lora.getPacketStatus());
     mp->rx_snr = lora.getSNR();
@@ -307,7 +314,8 @@ template <typename T> void SX126xInterface<T>::addReceiveMetadata(meshtastic_Mes
 
 /** We override to turn on transmitter power as needed.
  */
-template <typename T> void SX126xInterface<T>::configHardwareForSend()
+template <typename T>
+void SX126xInterface<T>::configHardwareForSend()
 {
     setTransmitEnable(true);
     RadioLibInterface::configHardwareForSend();
@@ -316,7 +324,8 @@ template <typename T> void SX126xInterface<T>::configHardwareForSend()
 // For power draw measurements, helpful to force radio to stay sleeping
 // #define SLEEP_ONLY
 
-template <typename T> void SX126xInterface<T>::startReceive()
+template <typename T>
+void SX126xInterface<T>::startReceive()
 {
 #ifdef SLEEP_ONLY
     sleep();
@@ -344,7 +353,8 @@ template <typename T> void SX126xInterface<T>::startReceive()
 }
 
 /** Is the channel currently active? */
-template <typename T> bool SX126xInterface<T>::isChannelActive()
+template <typename T>
+bool SX126xInterface<T>::isChannelActive()
 {
     // check if we can detect a LoRa preamble on the current channel
     ChannelScanConfig_t cfg = {.cad = {.symNum = NUM_SYM_CAD,
@@ -373,14 +383,16 @@ template <typename T> bool SX126xInterface<T>::isChannelActive()
 }
 
 /** Could we send right now (i.e. either not actively receiving or transmitting)? */
-template <typename T> bool SX126xInterface<T>::isActivelyReceiving()
+template <typename T>
+bool SX126xInterface<T>::isActivelyReceiving()
 {
     // The IRQ status will be cleared when we start our read operation. Check if we've started a header, but haven't yet
     // received and handled the interrupt for reading the packet/handling errors.
     return receiveDetected(lora.getIrqFlags(), RADIOLIB_SX126X_IRQ_HEADER_VALID, RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED);
 }
 
-template <typename T> bool SX126xInterface<T>::sleep()
+template <typename T>
+bool SX126xInterface<T>::sleep()
 {
     // Not keeping config is busted - next time nrf52 board boots lora sending fails  tcxo related? - see datasheet
     // \todo Display actual typename of the adapter, not just `SX126x`
@@ -399,25 +411,25 @@ template <typename T> bool SX126xInterface<T>::sleep()
     digitalWrite(SX126X_POWER_EN, LOW);
 #endif
 
-#if defined(USE_GC1109_PA)
-    /*
-     * Do not switch the power on and off frequently.
-     * After turning off LORA_PA_EN, the power consumption has dropped to the uA level.
-     *  // digitalWrite(LORA_PA_POWER, LOW);
-     */
-    digitalWrite(LORA_PA_EN, LOW);
-    digitalWrite(LORA_PA_TX_EN, LOW);
+#if HAS_LORA_FEM
+    loraFEMInterface.setSleepModeEnable();
 #endif
     return true;
 }
 
 /** Control PA mode for GC1109 FEM - CPS pin selects full PA (txon=true) or bypass mode (txon=false) */
-template <typename T> void SX126xInterface<T>::setTransmitEnable(bool txon)
+template <typename T>
+void SX126xInterface<T>::setTransmitEnable(bool txon)
 {
-#if defined(USE_GC1109_PA)
-    digitalWrite(LORA_PA_POWER, HIGH);         // Ensure LDO is on
-    digitalWrite(LORA_PA_EN, HIGH);            // CSD=1: Chip enabled
-    digitalWrite(LORA_PA_TX_EN, txon ? 1 : 0); // CPS: 1=full PA, 0=bypass (for RX, CPS is don't care)
+#if HAS_LORA_FEM
+    if (txon)
+    {
+        loraFEMInterface.setTxModeEnable();
+    }
+    else
+    {
+        loraFEMInterface.setRxModeEnable();
+    }
 #endif
 }
 
