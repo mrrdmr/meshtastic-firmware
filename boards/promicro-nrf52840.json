@@ -1,7 +1,7 @@
 {
   "build": {
     "arduino": {
-      "ldscript": "nrf52840_s140_v6.ld"
+      "ldscript": "nrf52840_s140_v7.ld"
     },
     "core": "nRF5",
     "cpu": "cortex-m4",
@@ -23,8 +23,8 @@
     "softdevice": {
       "sd_flags": "-DS140",
       "sd_name": "s140",
-      "sd_version": "6.1.1",
-      "sd_fwid": "0x00B6"
+      "sd_version": "7.3.0",
+      "sd_fwid": "0x0123"
     },
     "bootloader": {
       "settings_addr": "0xFF000"
@@ -33,7 +33,8 @@
   "connectivity": ["bluetooth"],
   "debug": {
     "jlink_device": "nRF52840_xxAA",
-    "svd_path": "nrf52840.svd"
+    "svd_path": "nrf52840.svd",
+    "openocd_target": "nrf52840-mdk-rs"
   },
   "frameworks": ["arduino"],
   "name": "ProMicro compatible nRF52840",
